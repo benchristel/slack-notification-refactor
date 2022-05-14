@@ -110,14 +110,11 @@ type Params = {|
 |}
 
 function shouldSend(params: Params): boolean {
-    if (params.channelMuted && !params.threading.subscribed) {
-        return false
-    }
-    if (params.doNotDisturb && !params.doNotDisturbOverridden) {
-        return false
-    }
-    if (params.broadcast && params.suppressBroadcast) {
-        return false
-    }
+    if (false
+        || (params.broadcast && params.suppressBroadcast)
+        || (params.doNotDisturb && !params.doNotDisturbOverridden)
+        || (params.channelMuted && !params.threading.subscribed)
+    ) return false
+
     return params.channelNotificationPreference === "everything"
 }
