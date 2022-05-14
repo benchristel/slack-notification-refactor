@@ -74,64 +74,66 @@ const tests: {[string]: Scenario} = {
             channelNotificationPreference: "everything",
         }
     },
-    "sender cannot override a muted channel": {
-        expectToSend: false,
-        input: {
-            channelMuted: true,
-            doNotDisturbOverridden: true,
-            doNotDisturb: true,
-        }
-    },
     "suppressed broadcast": {
         expectToSend: false,
         input:{
+            broadcast: true,
             suppressBroadcast: true,
         }
     },
-    "broadcast when user wants no notifications for the channel": {
+    "muted channel, threaded and subscribed and do not disturb": {
         expectToSend: false,
         input: {
-            broadcast: true,
-            channelNotificationPreference: "nothing",
-        }
-    },
-    "subscribed thread with threads_everything on and channel notifications off": {
-        expectToSend: false,
-        input: {
+            channelMuted: true,
             threading: {type: "Threaded", subscribed: true},
-            threadsEverything: true,
-            channelNotificationPreference: "nothing",
+            doNotDisturb: true,
+            doNotDisturbOverridden: false,
         }
     },
-    "subscribed thread with threads_everything on when the user only wants mentions": {
-        expectToSend: true,
-        input: {
-            threading: {type: "Threaded", subscribed: true},
-            threadsEverything: true,
-            doNotDisturb: false,
-            channelNotificationPreference: "mentions",
-        }
-    },
-    "subscribed thread with threads_everything off when the user only wants mentions": {
-        expectToSend: false,
-        input: {
-            threading: {type: "Threaded", subscribed: true},
-            threadsEverything: false,
-            doNotDisturb: false,
-            channelNotificationPreference: "mentions",
-            atMention: false,
-            commentOnFileOwnedByUser: false,
-        }
-    },
-    "@mention when the user only wants mentions": {
-        expectToSend: true,
-        input: {
-            doNotDisturb: false,
-            channelNotificationPreference: "mentions",
-            channelMuted: false,
-            atMention: true,
-        }
-    },
+    // "broadcast when user wants no notifications for the channel": {
+    //     expectToSend: false,
+    //     input: {
+    //         broadcast: true,
+    //         channelNotificationPreference: "nothing",
+    //     }
+    // },
+    // "subscribed thread with threads_everything on and channel notifications off": {
+    //     expectToSend: false,
+    //     input: {
+    //         threading: {type: "Threaded", subscribed: true},
+    //         threadsEverything: true,
+    //         channelNotificationPreference: "nothing",
+    //     }
+    // },
+    // "subscribed thread with threads_everything on when the user only wants mentions": {
+    //     expectToSend: true,
+    //     input: {
+    //         threading: {type: "Threaded", subscribed: true},
+    //         threadsEverything: true,
+    //         doNotDisturb: false,
+    //         channelNotificationPreference: "mentions",
+    //     }
+    // },
+    // "subscribed thread with threads_everything off when the user only wants mentions": {
+    //     expectToSend: false,
+    //     input: {
+    //         threading: {type: "Threaded", subscribed: true},
+    //         threadsEverything: false,
+    //         doNotDisturb: false,
+    //         channelNotificationPreference: "mentions",
+    //         atMention: false,
+    //         commentOnFileOwnedByUser: false,
+    //     }
+    // },
+    // "@mention when the user only wants mentions": {
+    //     expectToSend: true,
+    //     input: {
+    //         doNotDisturb: false,
+    //         channelNotificationPreference: "mentions",
+    //         channelMuted: false,
+    //         atMention: true,
+    //     }
+    // },
 }
 
 test("notifications:", entries(tests)
@@ -169,13 +171,50 @@ type Params = {|
     commentOnFileOwnedByUser: boolean,
 |}
 
-function shouldSend(params: Params): boolean {
-    if (false
-        || (params.broadcast && params.suppressBroadcast)
-        || (params.doNotDisturb && !params.doNotDisturbOverridden)
-        || (params.channelMuted && !params.threading.subscribed)
-        || (!params.threadsEverything && params.channelNotificationPreference === "mentions") && !params.atMention
-    ) return false
+function spy(f) {
+    return (...args) => {
+        debug("spy called")
+        return f(...args)
+    }
+}
 
-    return params.channelNotificationPreference !== "nothing"
+function shouldSend(params: Params): boolean | void {
+    const notify = () => true
+    const dontNotify = () => false
+    const dND = doNotDisturb({
+        yes: dndOverride({
+            yes: notify,
+            no: dontNotify // DONE
+        }),
+        no: broadcast({
+            yes: suppressedBroadcast({
+                yes: dontNotify,
+                no: notify,
+            }),
+            no: notify,
+        })
+    })
+
+    return channelMuted({
+        yes: threadMessageAndUserSubscribed({
+            yes: dND,
+            no: dontNotify // DONE
+        }),
+        no: dND
+    })(params)
+}
+
+type Continuation = (Params) => boolean
+
+const channelMuted = BinaryDecider((params) => params.channelMuted)
+const doNotDisturb = BinaryDecider((params) => params.doNotDisturb)
+const threadMessageAndUserSubscribed = BinaryDecider( params => params.threading.type === "Threaded" && params.threading.subscribed)
+const dndOverride = BinaryDecider(params => params.doNotDisturbOverridden)
+const broadcast = BinaryDecider(params => params.broadcast)
+const suppressedBroadcast = BinaryDecider(params => params.suppressBroadcast)
+
+function BinaryDecider(predicate) {
+    return ({yes, no}: {|yes: Continuation, no: Continuation|}): Continuation => {
+        return (params: Params) => predicate(params) ? yes(params) : no(params)
+    }
 }
