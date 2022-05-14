@@ -13,9 +13,7 @@ export function TestResults(): React.Node {
             .catch((e: Error) => setMessage(e.message))
     }, [])
 
-    return /fail/i.test(message)
-        ? <div class="TestResults">
-            <code><pre>{message}</pre></code>
-          </div>
-        : null
+    return <div class="TestResults">
+        <code><pre>{message}</pre></code>
+    </div>
 }
