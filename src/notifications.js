@@ -21,75 +21,98 @@ const tendNotToSend = {
     channelNotificationPreference: "nothing",
 }
 
-test("notifications:", {
-    "returns false if the channel is muted and the message is not in a thread"() {
-        expect(shouldSend({
-            ...tendToSend,
+type Scenario = {|
+    expectToSend: boolean,
+    input: $Shape<Params>,
+|}
+
+const tests = {
+    "doesn't send if the channel is muted and the message is not in a thread": {
+        expectToSend: false,
+        input: {
             channelMuted: true,
             threading: unthreaded(),
-        }), is, false)
+        },
     },
-
-    "sends a notification"() {
-        expect(shouldSend(tendToSend), is, true)
+    "sends a notification": {
+        expectToSend: true,
+        input: tendToSend,
     },
-
-    "does not send a notification"() {
-        expect(shouldSend(tendNotToSend), is, false)
+    "does NOT send a notification": {
+        expectToSend: false,
+        input: tendNotToSend,
     },
-
-    "sends a notification when the channel is muted but the user is subscribed to the thread"() {
-        expect(shouldSend({
-            ...tendNotToSend,
+    "sends a notification when the channel is muted but the user is subscribed to the thread": {
+        expectToSend: true,
+        input: {
             channelMuted: true,
             threading: {type: "Threaded", subscribed: true},
             doNotDisturb: false,
             channelNotificationPreference: "everything",
-        }), is, true)
+        },
     },
-
-    "does not send a notification when the sender wishes not to be obnoxious"() {
-        expect(shouldSend({
-            ...tendToSend,
+    "does not send a notification when the sender wishes not to be obnoxious": {
+        expectToSend: false,
+        input: {
             doNotDisturb: true,
             doNotDisturbOverridden: false,
-        }), is, false)
+        },
     },
-
-    "sends a notification when the sender wishes to be obnoxious"() {
-        expect(shouldSend({
-            ...tendNotToSend,
+    "sends a notification when the sender wishes to be obnoxious": {
+        expectToSend: true,
+        input: {
             channelMuted: false,
             doNotDisturb: true,
             doNotDisturbOverridden: true,
             channelNotificationPreference: "everything",
-        }), is, true)
+        }
     },
-
-    "sender cannot override a muted channel"() {
-        expect(shouldSend({
-            ...tendToSend,
+    "sender cannot override a muted channel": {
+        expectToSend: false,
+        input: {
             channelMuted: true,
             doNotDisturbOverridden: true,
             doNotDisturb: true,
-        }), is, false)
+        }
     },
-
-    "suppressed broadcast"() {
-        expect(shouldSend({
-            ...tendToSend,
+    "suppressed broadcast": {
+        expectToSend: false,
+        input:{
             suppressBroadcast: true,
-        }), is, false)
+        }
     },
-
-    "broadcast when user wants no notifications for the channel"() {
-        expect(shouldSend({
-            ...tendToSend,
+    "broadcast when user wants no notifications for the channel": {
+        expectToSend: false,
+        input: {
             broadcast: true,
             channelNotificationPreference: "nothing",
-        }), is, false)
+        }
     },
-})
+}
+
+test("notifications:", entries(tests)
+    .map(scenarioToTasteTest)
+    .reduce(intoObject, {}),
+)
+
+function scenarioToTasteTest([title, scenario]: [string, Scenario]) {
+    return [title, () => {
+        expect(shouldSend({
+            ...(scenario.expectToSend ? tendNotToSend : tendToSend),
+            ...scenario.input,
+        }), is, scenario.expectToSend)
+    }]
+}
+
+function intoObject(obj, [key, value]) {
+    obj[key] = value
+    return obj
+}
+
+function entries<V>(obj: {[string]: V}): [[string, V]] {
+    return (Object.entries(obj): any)
+}
+
 
 type Threading =
     | {type: "Threaded", subscribed: boolean}
