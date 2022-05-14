@@ -1,8 +1,8 @@
 // @flow
 import { entries, intoObject } from "./utils";
-import {test, expect, is} from "@benchristel/taste"
+import {test, expect, is, debug} from "@benchristel/taste"
 
-const tendToSend = {
+const tendToSend: Params = {
     channelMuted: false,
     threading: unthreaded(),
     doNotDisturb: false,
@@ -10,9 +10,12 @@ const tendToSend = {
     broadcast: true,
     suppressBroadcast: false,
     channelNotificationPreference: "everything",
+    threadsEverything: true,
+    atMention: true,
+    commentOnFileOwnedByUser: true,
 }
 
-const tendNotToSend = {
+const tendNotToSend: Params = {
     channelMuted: true,
     threading: {type: "Threaded", subscribed: false},
     doNotDisturb: true,
@@ -20,6 +23,9 @@ const tendNotToSend = {
     broadcast: false,
     suppressBroadcast: true,
     channelNotificationPreference: "nothing",
+    threadsEverything: false,
+    atMention: false,
+    commentOnFileOwnedByUser: false,
 }
 
 type Scenario = {|
@@ -27,7 +33,7 @@ type Scenario = {|
     input: $Shape<Params>,
 |}
 
-const tests = {
+const tests: {[string]: Scenario} = {
     "doesn't send if the channel is muted and the message is not in a thread": {
         expectToSend: false,
         input: {
@@ -89,6 +95,43 @@ const tests = {
             channelNotificationPreference: "nothing",
         }
     },
+    "subscribed thread with threads_everything on and channel notifications off": {
+        expectToSend: false,
+        input: {
+            threading: {type: "Threaded", subscribed: true},
+            threadsEverything: true,
+            channelNotificationPreference: "nothing",
+        }
+    },
+    "subscribed thread with threads_everything on when the user only wants mentions": {
+        expectToSend: true,
+        input: {
+            threading: {type: "Threaded", subscribed: true},
+            threadsEverything: true,
+            doNotDisturb: false,
+            channelNotificationPreference: "mentions",
+        }
+    },
+    "subscribed thread with threads_everything off when the user only wants mentions": {
+        expectToSend: false,
+        input: {
+            threading: {type: "Threaded", subscribed: true},
+            threadsEverything: false,
+            doNotDisturb: false,
+            channelNotificationPreference: "mentions",
+            atMention: false,
+            commentOnFileOwnedByUser: false,
+        }
+    },
+    "@mention when the user only wants mentions": {
+        expectToSend: true,
+        input: {
+            doNotDisturb: false,
+            channelNotificationPreference: "mentions",
+            channelMuted: false,
+            atMention: true,
+        }
+    },
 }
 
 test("notifications:", entries(tests)
@@ -120,7 +163,10 @@ type Params = {|
     doNotDisturbOverridden: boolean,
     broadcast: boolean,
     suppressBroadcast: boolean,
-    channelNotificationPreference: "everything" | "nothing",
+    channelNotificationPreference: "everything" | "nothing" | "mentions",
+    threadsEverything: boolean,
+    atMention: boolean,
+    commentOnFileOwnedByUser: boolean,
 |}
 
 function shouldSend(params: Params): boolean {
@@ -128,7 +174,8 @@ function shouldSend(params: Params): boolean {
         || (params.broadcast && params.suppressBroadcast)
         || (params.doNotDisturb && !params.doNotDisturbOverridden)
         || (params.channelMuted && !params.threading.subscribed)
+        || (!params.threadsEverything && params.channelNotificationPreference === "mentions") && !params.atMention
     ) return false
 
-    return params.channelNotificationPreference === "everything"
+    return params.channelNotificationPreference !== "nothing"
 }
