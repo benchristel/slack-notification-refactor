@@ -1,4 +1,5 @@
 // @flow
+import { entries, intoObject } from "./utils";
 import {test, expect, is} from "@benchristel/taste"
 
 const tendToSend = {
@@ -103,16 +104,6 @@ function scenarioToTasteTest([title, scenario]: [string, Scenario]) {
         }), is, scenario.expectToSend)
     }]
 }
-
-function intoObject(obj, [key, value]) {
-    obj[key] = value
-    return obj
-}
-
-function entries<V>(obj: {[string]: V}): [[string, V]] {
-    return (Object.entries(obj): any)
-}
-
 
 type Threading =
     | {type: "Threaded", subscribed: boolean}
