@@ -13,10 +13,3 @@ export function App(): React.Node {
 function greet(name: string): string {
   return `Hello, ${name}!`
 }
-
-test("greet", {
-    "returns a greeting for the given name"() {
-        expect(greet("Alice"), is, "Hello, Alice!")
-        expect(greet("Bob"), is, "Hello, Bob!")
-    },
-})
