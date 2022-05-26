@@ -1,6 +1,6 @@
 // @flow
 import { entries, intoObject } from "./utils";
-import {test, expect, is, debug} from "@benchristel/taste"
+import {test, expect, is} from "@benchristel/taste"
 
 const tendToSend: Params = {
     channelMuted: false,
@@ -13,6 +13,7 @@ const tendToSend: Params = {
     threadsEverything: true,
     atMention: true,
     commentOnFileOwnedByUser: true,
+    fileComment: true,
 }
 
 const tendNotToSend: Params = {
@@ -26,6 +27,7 @@ const tendNotToSend: Params = {
     threadsEverything: false,
     atMention: false,
     commentOnFileOwnedByUser: false,
+    fileComment: false,
 }
 
 type Scenario = {|
@@ -121,6 +123,7 @@ const tests: {[string]: Scenario} = {
             channelNotificationPreference: "mentions",
             atMention: false,
             commentOnFileOwnedByUser: false,
+            fileComment: false,
         }
     },
     "@mention when the user only wants mentions": {
@@ -131,6 +134,15 @@ const tests: {[string]: Scenario} = {
             channelMuted: false,
             atMention: true,
         }
+    },
+    "file comment when the user wants only mentions": {
+        expectToSend: true,
+        input: {
+            doNotDisturb: false,
+            channelNotificationPreference: "mentions",
+            channelMuted: false,
+            fileComment: true,
+        },
     },
 }
 
@@ -167,6 +179,7 @@ type Params = {|
     threadsEverything: boolean,
     atMention: boolean,
     commentOnFileOwnedByUser: boolean,
+    fileComment: boolean,
 |}
 
 function shouldSend(params: Params): boolean {
@@ -174,8 +187,14 @@ function shouldSend(params: Params): boolean {
         || (params.broadcast && params.suppressBroadcast)
         || (params.doNotDisturb && !params.doNotDisturbOverridden)
         || (params.channelMuted && !params.threading.subscribed)
-        || (!params.threadsEverything && params.channelNotificationPreference === "mentions") && !params.atMention
     ) return false
 
-    return params.channelNotificationPreference !== "nothing"
+    switch (params.channelNotificationPreference) {
+        case "mentions":
+            return params.threadsEverything || params.atMention || params.fileComment
+        case "nothing":
+            return false
+        default:
+            return true
+    }
 }
